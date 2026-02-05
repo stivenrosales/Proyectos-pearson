@@ -2,6 +2,7 @@ import React from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Project, ApiResponse } from '@/types';
 import toast from 'react-hot-toast';
+import { trackEvent } from '@/lib/analytics';
 
 interface ProjectsResponse extends ApiResponse<Project[]> {
   hasMore: boolean;
@@ -134,6 +135,21 @@ export function useUpdateProjectStatus() {
         });
       }
     },
+    onSuccess: (_data, variables) => {
+      // Track evento de cambio de estado
+      // Obtener el estado anterior del cache
+      const allQueries = queryClient.getQueriesData<Project[]>({ queryKey: ['projects'] });
+      let previousStatus = 'unknown';
+      allQueries.forEach(([, data]) => {
+        if (Array.isArray(data)) {
+          const project = data.find(p => p.id === variables.projectId);
+          if (project?.estadoManual) {
+            previousStatus = project.estadoManual;
+          }
+        }
+      });
+      trackEvent.projectStatusChanged(variables.projectId, previousStatus, variables.status);
+    },
     onSettled: () => {
       // Invalidate to refetch fresh data
       queryClient.invalidateQueries({ queryKey: ['projects'] });
@@ -198,7 +214,9 @@ export function useUpdateProjectDate() {
       }
       toast.error(err instanceof Error ? err.message : 'Error al actualizar la fecha');
     },
-    onSuccess: () => {
+    onSuccess: (_data, variables) => {
+      // Track evento de cambio de fecha
+      trackEvent.projectDateChanged(variables.projectId, variables.fechaPrometida);
       toast.success('Fecha actualizada');
     },
     onSettled: () => {

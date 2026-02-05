@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { Inter } from "next/font/google";
 import { Toaster } from "react-hot-toast";
+import { Analytics } from "@vercel/analytics/react";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import { SessionProvider } from "@/components/providers/SessionProvider";
 import { QueryProvider } from "@/components/providers/QueryProvider";
 import "./globals.css";
@@ -59,6 +61,10 @@ export default function RootLayout({
                 },
               }}
             />
+
+            {/* Vercel Analytics y Speed Insights */}
+            <Analytics />
+            <SpeedInsights />
           </QueryProvider>
         </SessionProvider>
       </body>

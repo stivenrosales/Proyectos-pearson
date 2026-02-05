@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Task, TaskFormData, ApiResponse } from '@/types';
 import toast from 'react-hot-toast';
+import { trackEvent } from '@/lib/analytics';
 
 async function fetchTasks(projectId: string): Promise<Task[]> {
   const response = await fetch(`/api/airtable/tasks?projectId=${projectId}`);
@@ -92,6 +93,8 @@ export function useCreateTask(projectId: string | null) {
       queryClient.invalidateQueries({
         queryKey: ['dashboard'],
       });
+      // Track evento
+      trackEvent.taskCreated(projectId!, newTask.nombreTarea, newTask.tipoTarea || undefined);
       toast.success('Tarea creada correctamente');
     },
     onError: (err) => {
@@ -162,6 +165,18 @@ export function useUpdateTask(projectId: string | null) {
       }
       toast.error(err instanceof Error ? err.message : 'Error al actualizar la tarea');
     },
+    onSuccess: (_data, variables) => {
+      // Track cambios de estado
+      if (variables.updates.estado && variables.currentTask) {
+        trackEvent.taskStatusChanged(
+          variables.taskId,
+          variables.currentTask.estado,
+          variables.updates.estado
+        );
+      } else {
+        trackEvent.taskUpdated(variables.taskId, Object.keys(variables.updates));
+      }
+    },
     onSettled: (_data, _error, variables) => {
       // Invalidar tareas del proyecto actual
       queryClient.invalidateQueries({
@@ -228,7 +243,9 @@ export function useDeleteTask(projectId: string | null) {
       toast.error(err instanceof Error ? err.message : 'Error al eliminar la tarea. Intenta de nuevo.');
       console.error('Delete task error:', err);
     },
-    onSuccess: () => {
+    onSuccess: (_data, taskId) => {
+      // Track evento de eliminación
+      trackEvent.taskDeleted(taskId, 'deleted');
       toast.success('Tarea eliminada correctamente');
     },
     onSettled: () => {
@@ -291,6 +308,10 @@ export function useUpdateTasksBatch(projectId: string | null) {
         queryClient.setQueryData(['tasks', projectId], context.previousTasks);
       }
       toast.error(err instanceof Error ? err.message : 'Error al reordenar tareas');
+    },
+    onSuccess: (_data, updates) => {
+      // Track evento de reordenamiento
+      trackEvent.taskReordered(projectId!, updates.length);
     },
     onSettled: () => {
       queryClient.invalidateQueries({
